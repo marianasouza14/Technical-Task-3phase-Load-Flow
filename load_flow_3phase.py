@@ -2,6 +2,7 @@ import pandapower as pp
 import math
 from pandapower.pf.runpp_3ph import runpp_3ph  #function for 3phase load flow
 from pandapower.plotting import simple_plot
+import pandas as pd
 
 def create_6bus_system():
     
@@ -75,7 +76,6 @@ def create_6bus_system():
         si0_hv_partial=0.9     # Distribution of zero sequence leakage impedances for HV side
     )
 
-    # Modify transformer 2 parameters
     pp.create_transformer_from_parameters(
         net,
         hv_bus=bus2,           # High-voltage bus
@@ -102,12 +102,7 @@ def create_6bus_system():
     pp.create_load(net, bus=bus5, p_mw=0.03, q_mvar=0.001, name="LV Load 3")
     pp.create_load(net, bus=bus6, p_mw=0.09, q_mvar=0.001, name="LV Load 4")
 
-    
-
-
-
     #Lines
-   
     pp.create_line_from_parameters(net, from_bus=bus3, to_bus=bus5, length_km=0.08, r_ohm_per_km=0.6, x_ohm_per_km=0.08, c_nf_per_km=210, max_i_ka=0.142, r0_ohm_per_km=0.01, c0_nf_per_km=100, x0_ohm_per_km=0.1, name="Line Bus3 to Bus5")
     pp.create_line_from_parameters(net, from_bus=bus5, to_bus=bus6, length_km=0.08, r_ohm_per_km=0.6, x_ohm_per_km=0.08, c_nf_per_km=210, max_i_ka=0.142, r0_ohm_per_km=0.01, c0_nf_per_km=100, x0_ohm_per_km=0.1, name="Line Bus5 to Bus6")
     pp.create_line_from_parameters(net, from_bus=bus6, to_bus=bus4, length_km=0.08, r_ohm_per_km=0.6, x_ohm_per_km=0.08, c_nf_per_km=210, max_i_ka=0.142, r0_ohm_per_km=0.01, c0_nf_per_km=100, x0_ohm_per_km=0.1, name="Line Bus6 to Bus4")
@@ -121,12 +116,6 @@ def create_6bus_system():
 
 net = create_6bus_system()
 
-print("###############################")
-print(net.bus)
-print(net.line)
-print(net.ext_grid)
-
-print("###############################")
 
 pp.diagnostic(net, report_style='detailed')
 
@@ -138,9 +127,35 @@ runpp_3ph(net, init='flat', tolerance='auto', max_iteration='auto')
 print(net)
 
 
-print("Voltage in p.u:\n", net.res_bus[['vm_pu', 'va_degree']])
-print("Transformer loading:\n", net.res_trafo[['loading_percent']])
-print("Line loading:\n", net.res_line[['loading_percent']])
+#Export Results
+
+bus_voltages = net.res_bus[['vm_pu', 'va_degree']].copy()
+bus_voltages['Category'] = 'Bus Voltages'
+
+
+bus_voltages = net.res_bus[['vm_pu', 'va_degree']].copy()
+bus_voltages.insert(0, 'Bus Name', net.bus.index)  # Add Bus Name as the first column
+
+
+transformer_data = net.res_trafo[['p_hv_mw', 'q_hv_mvar', 'p_lv_mw', 'q_lv_mvar', 'loading_percent']].copy()
+transformer_data.insert(0, 'Transformer Name', net.trafo.index)  # Add Transformer Name as the first column
+
+
+line_data = net.res_line[['loading_percent', 'i_ka']].copy()
+line_data.insert(0, 'Line Name', net.line.index)  # Add Line Name as the first column
+
+
+output_path = r"C:\\Users\\mariana.souza\\Documents\\AITL_LSBU\\network_results.xlsx"
+with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+    bus_voltages.to_excel(writer, sheet_name='Bus Voltages', index=False)
+    transformer_data.to_excel(writer, sheet_name='Transformer Data', index=False)
+    line_data.to_excel(writer, sheet_name='Line Data', index=False)
+
+print(f"Results exported to Excel at {output_path}")
+
+print(f"All results exported to {output_path}")
+
+
 
 simple_plot(net, 
             respect_switches=True, 
@@ -167,4 +182,5 @@ simple_plot(net,
             library='igraph', 
             show_plot=True, 
            )
+
 
